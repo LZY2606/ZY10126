@@ -27,6 +27,10 @@
     "./util": {
       "types": "./dist/util.d.ts",
       "default": "./dist/util.js"
+    },
+    "./edit": {
+      "types": "./dist/edit/index.d.ts",
+      "default": "./dist/edit/index.js"
     }
   },
   "scripts": {
@@ -38,7 +42,7 @@
     "test": "vitest run",
     "test:all": "npm test && npm run test:types && npm run test:dist && npm run test:dist:types",
     "test:dist": "npm run build && vitest run",
-    "test:dist:types": "tsc --ignoreConfig --allowJs --moduleResolution bundler --noEmit --target es2015 dist/cli.js dist/index.js dist/test-events.js dist/util.js",
+    "test:dist:types": "tsc --ignoreConfig --allowJs --moduleResolution bundler --noEmit --target es2015 dist/cli.js dist/index.js dist/test-events.js dist/util.js dist/edit/index.js",
     "test:types": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
     "docs:install": "cd docs-slate && bundle install",
     "predocs:deploy": "node docs/prepare-docs.js",

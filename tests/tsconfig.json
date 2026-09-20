@@ -3,6 +3,7 @@
   "compilerOptions": {
     "paths": {
       "yaml": ["../src/index.ts"],
+      "yaml/edit": ["../src/edit/index.ts"],
       "yaml/cli": ["../src/cli.ts"],
       "yaml/util": ["../src/util.ts"]
     },
