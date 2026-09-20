@@ -177,3 +177,106 @@ See the section on [custom tags](#writing-custom-tags) for more on this topic.
 
 `doc.directives.yaml` determines if an explicit `%YAML` directive should be included in the output, and what version it should use.
 If changing the version after the document's creation, you'll probably want to use `doc.setSchema()` as it will also update the schema accordingly.
+
+## Edit plans
+
+For configuration migration and other multi-step rewrites, `Document#createEditPlan` provides an opt-in, transactional alternative to calling `set()`/`delete()` directly.
+An edit plan analyses a whole batch of semantic edits against the same parsed snapshot and either commits all of them or reports positionable conflicts without touching the document.
+The direct `set`, `setIn`, `delete` and `get` methods keep their existing, immediate semantics.
+
+Parse with `keepSourceTokens: true` and pass the original source to enable byte-level preservation: untouched subtrees are copied verbatim, including anchors, aliases, comments, flow/block style, spacing and line endings.
+
+### 1. Preview
+
+```js
+import { parseDocument } from 'yaml'
+
+const src = 'name: old\nport: 8080\n'
+const doc = parseDocument(src, { keepSourceTokens: true })
+
+const plan = doc.createEditPlan(
+  [
+    { type: 'set', path: ['name'], value: 'new' },
+    { type: 'set', path: ['port'], value: 9090 }
+  ],
+  { source: src }
+)
+
+plan.ok // true
+plan.items.forEach(item => {
+  item.node // the node hit by the path
+  item.range // its original source range
+  item.anchorImpacts // anchors/aliases touched
+  item.rewriteRoot // the minimal collection that is re-rendered
+  item.rewriteReason // why the scope was (possibly) widened
+})
+```
+
+Paths distinguish map keys (strings) from sequence indices (numbers), and duplicate keys are addressed with `{ key, occurrence }`.
+
+### 2. Resolve conflicts
+
+Plans never silently choose between ambiguous or dangerous edits.
+Each conflict carries an error code, a human-readable message and, when available, the source `range` and disambiguation candidates.
+
+```js
+const doc = parseDocument('k: 1\nk: 2\n', { keepSourceTokens: true })
+const plan = doc.createEditPlan([{ type: 'set', path: ['k'], value: 9 }], {
+  source: 'k: 1\nk: 2\n'
+})
+plan.ok // false
+plan.conflicts[0]
+// {
+//   code: 'DUPLICATE_KEY',
+//   message: 'Duplicate key "k" has 2 occurrences; ...',
+//   candidates: [
+//     { path: [{ key: 'k', occurrence: 0 }], range: [0, 4], current: true },
+//     { path: [{ key: 'k', occurrence: 1 }], range: [6, 10], current: false }
+//   ]
+// }
+
+// Explicitly target the second occurrence:
+doc.createEditPlan(
+  [{ type: 'set', path: [{ key: 'k', occurrence: 1 }], value: 9 }],
+  { source: 'k: 1\nk: 2\n' }
+).ok // true
+```
+
+Other conflicts include `PATH_NOT_FOUND`, `MERGE_KEY` (the `<<` merge entry is never expanded implicitly), `ALIAS_TO_DELETED_ANCHOR`, `ANCHOR_ORDER` (moving an anchor after an alias that uses it), `OVERLAPPING_OPERATIONS`, `CONDITION_FAILED` and `STALE_PLAN`.
+
+Conditional edits let you assert the current value before changing it:
+
+```js
+doc.createEditPlan([
+  {
+    type: 'set',
+    path: ['port'],
+    value: 9090,
+    test: node => node.value === 8080
+  }
+])
+```
+
+### 3. Commit
+
+`commit()` applies the batch atomically.
+New nodes (including custom-tag `createNode` calls) and the resulting output are first exercised on a throwaway clone; a failure throws an `EditPlanConflictError` and leaves the original document able to `toString()` its original contents.
+Multiple operations resolve against the original snapshot, so a delete can never shift the sequence index of a later edit.
+
+```js
+import { EditPlanConflictError } from 'yaml'
+
+try {
+  const { text, doc, replacedRanges } = plan.commit()
+  text // patched source text
+  doc.toJSON() // updated semantic content
+  replacedRanges // source ranges that were actually replaced
+} catch (error) {
+  if (error instanceof EditPlanConflictError) {
+    // error.conflicts describes why the batch was not applied
+  }
+}
+```
+
+If the source text changes between planning and committing, the plan's pre-image hash no longer matches and commit rejects it with a `STALE_PLAN` conflict — re-parse and re-plan instead of applying a stale plan.
+Omit the `source` option to fall back to a full `doc.toString()` render.

@@ -20,6 +20,8 @@ import { stringifyDocument } from '../stringify/stringifyDocument.ts'
 import { anchorNames, findNewAnchor } from './anchors.ts'
 import { applyReviver } from './applyReviver.ts'
 import { Directives } from './directives.ts'
+import { EditPlan } from '../edit/plan.ts'
+import type { Edit, EditPlanOptions } from '../edit/types.ts'
 import { NodeCreator } from './NodeCreator.ts'
 
 export type DocValue = Scalar | YAMLSeq | YAMLMap | YAMLSet
@@ -223,6 +225,19 @@ export class Document<Value extends DocValue = DocValue> {
   /**
    * Returns item at `key`, or `undefined` if not found.
    */
+  /**
+   * Create an opt-in, transactional {@link EditPlan} for this document.
+   *
+   * The plan analyses a batch of semantic edits before applying any of them:
+   * duplicate keys, merge keys, alias/anchor problems and overlapping
+   * operations are reported as positionable conflicts instead of silently
+   * changing the document. When `options.source` is provided together with
+   * `keepSourceTokens`, untouched subtrees are preserved byte-for-byte.
+   */
+  createEditPlan(edits: Iterable<Edit>, options?: EditPlanOptions): EditPlan {
+    return new EditPlan(this, edits, options)
+  }
+
   get(
     key: any
   ): Value extends YAMLSeq

@@ -11,6 +11,27 @@ export { Composer } from './compose/composer.ts'
 export { Document, type DocValue } from './doc/Document.ts'
 export { Schema } from './schema/Schema.ts'
 
+export {
+  createEditPlan,
+  EditPlan,
+  EditPlanConflictError
+} from './edit/index.ts'
+export type {
+  CommitResult,
+  DeleteEdit,
+  Edit,
+  EditConflict,
+  EditConflictCode,
+  EditPath,
+  EditPathSegment,
+  EditPlanItem,
+  EditPlanOptions,
+  EditTest,
+  MoveEdit,
+  RenameKeyEdit,
+  SetEdit
+} from './edit/index.ts'
+
 export { YAMLError, YAMLParseError, YAMLWarning } from './errors.ts'
 export type { ErrorCode } from './errors.ts'
 
