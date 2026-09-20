@@ -1,0 +1,75 @@
+import { Alias, Scalar, type YAMLMap } from 'yaml'
+import { parseDocument, visit } from 'yaml'
+import { source } from './_utils.ts'
+
+describe('doc.clone()', () => {
+  test('has expected members', () => {
+    const doc = parseDocument('foo: bar')
+    const copy = doc.clone()
+    expect(copy).toMatchObject({
+      comment: null,
+      commentBefore: null,
+      errors: [],
+      warnings: []
+    })
+  })
+
+  test('has expected methods', () => {
+    const doc = parseDocument('foo: bar')
+    const copy = doc.clone()
+    expect(copy.toString()).toBe('foo: bar\n')
+    expect(copy.toJS()).toEqual({ foo: 'bar' })
+
+    const node = copy.createNode(42)
+    expect(node).toBeInstanceOf(Scalar)
+    expect(node).toMatchObject({ value: 42 })
+
+    const alias = copy.createAlias(node, 'foo')
+    expect(alias).toBeInstanceOf(Alias)
+    expect(alias).toMatchObject({ source: 'foo' })
+  })
+
+  test('has separate value from original', () => {
+    const doc = parseDocument('foo: bar')
+    const copy = doc.clone()
+    copy.set('foo', 'fizz')
+    expect(doc.get('foo')).toMatchObject(new Scalar('bar'))
+    expect(copy.get('foo')).toMatchObject(new Scalar('fizz'))
+  })
+
+  test('has separate directives from original', () => {
+    const doc = parseDocument<YAMLMap>('foo: bar')
+    const copy = doc.clone()
+    copy.directives.yaml.explicit = true
+    expect(copy.toString()).toBe(source`
+      %YAML 1.2
+      ---
+      foo: bar
+    `)
+    expect(doc.toString()).toBe('foo: bar\n')
+  })
+
+  test('handles anchors & aliases', () => {
+    const src = source`
+      foo: &foo FOO
+      bar: *foo
+    `
+    const doc = parseDocument(src)
+    const copy = doc.clone()
+    expect(copy.toString()).toBe(src)
+
+    visit(doc, {
+      Alias(_, it) {
+        if (it.source === 'foo') it.source = 'x'
+      },
+      Node(_, it) {
+        if (it.anchor === 'foo') it.anchor = 'x'
+      }
+    })
+    expect(doc.toString()).toBe(source`
+      foo: &x FOO
+      bar: *x
+    `)
+    expect(copy.toString()).toBe(src)
+  })
+})

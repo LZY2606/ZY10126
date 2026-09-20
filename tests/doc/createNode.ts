@@ -1,0 +1,361 @@
+import type { Alias, Node } from 'yaml'
+import { Document, Scalar, YAMLMap, YAMLSeq } from 'yaml'
+import { _map, _pair, _seq, _set, source } from '../_utils.ts'
+
+describe('createNode(value)', () => {
+  test('boolean', () => {
+    const s = new Document().createNode(false)
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s.value).toBe(false)
+  })
+  test('null', () => {
+    const s = new Document().createNode(null)
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s.value).toBe(null)
+  })
+  test('undefined', () => {
+    const s = new Document().createNode(undefined)
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s.value).toBe(null)
+  })
+  test('number', () => {
+    const s = new Document().createNode(3)
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s.value).toBe(3)
+  })
+  test('string', () => {
+    const s = new Document().createNode('test')
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s.value).toBe('test')
+  })
+})
+
+describe('explicit tags', () => {
+  test('default tag', () => {
+    const s = new Document().createNode(3, { tag: '!!str' })
+    expect(s).toBeInstanceOf(Scalar)
+    expect(s).toMatchObject({ value: 3, tag: 'tag:yaml.org,2002:str' })
+  })
+
+  test('unknown tag', () => {
+    expect(() => new Document().createNode('3', { tag: '!foo' })).toThrow(
+      'Tag !foo not found'
+    )
+  })
+})
+
+describe('arrays', () => {
+  test('createNode([])', () => {
+    const s = new Document().createNode([])
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toHaveLength(0)
+  })
+
+  test('createNode([true])', () => {
+    const doc = new Document()
+    const s = doc.createNode([true])
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toMatchObject([{ value: true }])
+    doc.value = s
+    expect(String(doc)).toBe('- true\n')
+  })
+
+  test('flow: true', () => {
+    const doc = new Document()
+    const s = doc.createNode([true], { flow: true })
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toMatchObject([{ value: true }])
+    doc.value = s
+    expect(String(doc)).toBe('[ true ]\n')
+  })
+
+  describe('[3, ["four", 5]]', () => {
+    const array = [3, ['four', 5]]
+    test('createNode(value)', () => {
+      const s = new Document().createNode(array) as any
+      expect(s).toBeInstanceOf(YAMLSeq)
+      expect(s).toHaveLength(2)
+      expect(s[0].value).toBe(3)
+      expect(s[1]).toBeInstanceOf(YAMLSeq)
+      expect(s[1]).toHaveLength(2)
+      expect(s[1][0].value).toBe('four')
+      expect(s[1][1].value).toBe(5)
+    })
+    test('set doc value', () => {
+      const res = '- 3\n- - four\n  - 5\n'
+      const doc = new Document(array)
+      expect(String(doc)).toBe(res)
+      doc.value = doc.createNode(array)
+      expect(String(doc)).toBe(res)
+    })
+  })
+})
+
+describe('objects', () => {
+  test('createNode({})', () => {
+    const s = new Document().createNode({})
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s.size).toBe(0)
+  })
+
+  test('createNode({ x: true })', () => {
+    const doc = new Document()
+    const s = doc.createNode({ x: true })
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true }))
+    doc.value = s
+    expect(String(doc)).toBe('x: true\n')
+  })
+
+  test('flow: true', () => {
+    const doc = new Document()
+    const s = doc.createNode({ x: true }, { flow: true })
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true }, { flow: true }))
+    doc.value = s
+    expect(String(doc)).toBe('{ x: true }\n')
+  })
+
+  test('createNode({ x: true, y: undefined })', () => {
+    const s = new Document().createNode({ x: true, y: undefined })
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true }))
+  })
+
+  test('createNode({ x: true, y: undefined }, { keepUndefined: true })', () => {
+    const s = new Document().createNode(
+      { x: true, y: undefined },
+      { keepUndefined: true }
+    )
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true, y: null }))
+  })
+
+  test('createNode(pair)', () => {
+    const pair = new Document().createPair('x', true)
+    const s = new Document().createNode(pair)
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true }))
+  })
+
+  describe('{ x: 3, y: [4], z: { w: "five", v: 6 } }', () => {
+    const object = { x: 3, y: [4], z: { w: 'five', v: 6 } }
+    test('createNode(value)', () => {
+      const s = new Document().createNode(object)
+      expect(s).toBeInstanceOf(YAMLMap)
+      expect(s.size).toBe(3)
+      expect(s).toMatchObject(
+        _map({ x: 3, y: _seq(4), z: _map({ w: 'five', v: 6 }) })
+      )
+    })
+    test('set doc value', () => {
+      const res = `x: 3
+y:
+  - 4
+z:
+  w: five
+  v: 6\n`
+      const doc = new Document(object)
+      expect(String(doc)).toBe(res)
+      doc.value = doc.createNode(object)
+      expect(String(doc)).toBe(res)
+    })
+  })
+})
+
+describe('Set', () => {
+  test('createNode(new Set)', () => {
+    const s = new Document().createNode(new Set())
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toHaveLength(0)
+  })
+
+  test('createNode(new Set([true]))', () => {
+    const s = new Document().createNode(new Set([true]))
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toMatchObject([{ value: true }])
+  })
+
+  describe("Set { 3, Set { 'four', 5 } }", () => {
+    const set = new Set([3, new Set(['four', 5])])
+
+    test('createNode(set)', () => {
+      const s = new Document().createNode(set) as any
+      expect(s).toBeInstanceOf(YAMLSeq)
+      expect(s).toHaveLength(2)
+      expect(s[0].value).toBe(3)
+      expect(s[1]).toBeInstanceOf(YAMLSeq)
+      expect(s[1]).toHaveLength(2)
+      expect(s[1][0].value).toBe('four')
+      expect(s[1][1].value).toBe(5)
+    })
+
+    test('set doc value', () => {
+      const res = '- 3\n- - four\n  - 5\n'
+      const doc = new Document(set)
+      expect(String(doc)).toBe(res)
+      doc.value = doc.createNode(set)
+      expect(String(doc)).toBe(res)
+    })
+
+    test('Schema#createNode() - YAML 1.2', () => {
+      const doc = new Document(null)
+      const s = doc.createNode(set)
+      expect(s).toBeInstanceOf(YAMLSeq)
+      expect(s).toMatchObject([{ value: 3 }, [{ value: 'four' }, { value: 5 }]])
+    })
+
+    test('Schema#createNode() - YAML 1.1', () => {
+      const doc = new Document(null, { version: '1.1' })
+      const s = doc.createNode(set) as any
+      expect(s.constructor.tagName).toBe('tag:yaml.org,2002:set')
+      expect(s).toMatchObject(
+        _set([3, [new Set(['four', 5]), _set(['four', 5])]])
+      )
+    })
+  })
+})
+
+describe('Map', () => {
+  test('createNode(new Map)', () => {
+    const s = new Document().createNode(new Map())
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s.size).toBe(0)
+  })
+  test('createNode(new Map([["x", true]]))', () => {
+    const s = new Document().createNode(new Map([['x', true]]))
+    expect(s).toBeInstanceOf(YAMLMap)
+    expect(s).toMatchObject(_map({ x: true }))
+  })
+  describe("Map { 'x' => 3, 'y' => Set { 4 }, Map { 'w' => 'five', 'v' => 6 } => 'z' }", () => {
+    const mapKey = new Map<string, any>([
+      ['w', 'five'],
+      ['v', 6]
+    ])
+    const map = new Map<any, any>([
+      ['x', 3],
+      ['y', new Set([4])],
+      [mapKey, 'z']
+    ])
+
+    test('createNode(map)', () => {
+      const s = new Document().createNode(map)
+      expect(s).toBeInstanceOf(YAMLMap)
+      expect(s.size).toBe(3)
+      expect(s).toMatchObject(
+        _map([
+          ['x', 3],
+          ['y', _seq(4)],
+          [mapKey, _pair(_map({ w: 'five', v: 6 }), 'z')]
+        ])
+      )
+    })
+
+    test('set doc value', () => {
+      const res = `x: 3
+y:
+  - 4
+? w: five
+  v: 6
+: z\n`
+      const doc = new Document(map)
+      expect(String(doc)).toBe(res)
+      doc.value = doc.createNode(map)
+      expect(String(doc)).toBe(res)
+    })
+  })
+})
+
+describe('toJSON()', () => {
+  test('Date', () => {
+    const date = new Date('2018-12-22T08:02:52Z')
+    const node = new Document().createNode(date)
+    expect(node.value).toBe(date.toJSON())
+  })
+})
+
+describe('strictly equal objects', () => {
+  test('createNode([foo, foo])', () => {
+    const foo = { foo: 'FOO' }
+    const s = new Document().createNode([foo, foo])
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toMatchObject(_seq(_map({ foo: 'FOO' }), { source: 'a1' }))
+    expect(s[0].anchor).toBe('a1')
+  })
+
+  test('createNode([foo, foo], { aliasDuplicateObjects: false })', () => {
+    const foo = { foo: 'FOO' }
+    const s = new Document().createNode([foo, foo], {
+      aliasDuplicateObjects: false
+    })
+    expect(s).toBeInstanceOf(YAMLSeq)
+    expect(s).toMatchObject(_seq(_map({ foo: 'FOO' }), _map({ foo: 'FOO' })))
+  })
+})
+
+describe('circular references', () => {
+  test('parent at root', () => {
+    const map: any = { foo: 'bar' }
+    map.map = map
+    const doc = new Document(map)
+    expect(doc.value).toMatchObject(
+      _map({ foo: 'bar', map: { source: 'a1' } }, { anchor: 'a1' })
+    )
+    expect(doc.toString()).toBe(source`
+      &a1
+      foo: bar
+      map: *a1
+    `)
+  })
+
+  test('ancestor at root', () => {
+    const baz: any = {}
+    const map = { foo: { bar: { baz } } }
+    baz.map = map
+    const doc = new Document<any>(map)
+    expect(doc.get('foo').get('bar').get('baz').get('map')).toMatchObject({
+      source: 'a1'
+    })
+    expect(doc.toString()).toBe(source`
+      &a1
+      foo:
+        bar:
+          baz:
+            map: *a1
+    `)
+  })
+
+  test('sibling sequences', () => {
+    const one = ['one']
+    const two = ['two']
+    const seq = [one, two, one, one, two]
+    const doc = new Document(seq)
+    expect(doc.value).toMatchObject([
+      [{ value: 'one' }],
+      [{ value: 'two' }],
+      { source: 'a1' },
+      { source: 'a1' },
+      { source: 'a2' }
+    ])
+    expect(doc.toString()).toBe(source`
+      - &a1
+        - one
+      - &a2
+        - two
+      - *a1
+      - *a1
+      - *a2
+    `)
+  })
+
+  test('further relatives', () => {
+    const baz = { a: 1 }
+    const seq = [{ foo: { bar: { baz } } }, { fe: { fi: { fo: { baz } } } }]
+    const doc = new Document(null)
+    const node = doc.createNode(seq) as any
+    const source = node[0].get('foo').get('bar').get('baz') as Node
+    const alias = node[1].get('fe').get('fi').get('fo').get('baz') as Alias
+    expect(source).toMatchObject(_map({ a: 1 }))
+    expect(alias.source).toBe(source.anchor)
+  })
+})

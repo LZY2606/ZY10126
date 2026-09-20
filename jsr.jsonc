@@ -1,0 +1,15 @@
+{
+  "name": "@eemeli/yaml",
+  "version": "Set in .github/workflows/jsr-publish.yml",
+  "license": "ISC",
+  "exports": {
+    ".": "./src/index.ts",
+    "./util": "./src/util.ts"
+  },
+  "exclude": ["*", "!LICENSE", "!README.md", "!src/", "src/cli.ts"],
+
+  // deno.json option, see https://github.com/denoland/deno/issues/22651
+  "compilerOptions": {
+    "noImplicitOverride": false
+  }
+}

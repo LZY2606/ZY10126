@@ -1,0 +1,73 @@
+{
+  "name": "yaml",
+  "version": "3.0.0-2",
+  "license": "ISC",
+  "author": "Eemeli Aro <eemeli@gmail.com>",
+  "funding": "https://github.com/sponsors/eemeli",
+  "repository": "github:eemeli/yaml",
+  "description": "JavaScript parser and stringifier for YAML",
+  "keywords": [
+    "YAML",
+    "parser",
+    "stringifier"
+  ],
+  "homepage": "https://eemeli.org/yaml/",
+  "files": [
+    "dist/"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": "./bin.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./util": {
+      "types": "./dist/util.d.ts",
+      "default": "./dist/util.js"
+    }
+  },
+  "scripts": {
+    "build": "rolldown -c",
+    "clean": "git clean -fdxe node_modules",
+    "lint": "eslint src/",
+    "prettier": "prettier --write .",
+    "start": "node -i -e 'YAML=require(\"./src/index.ts\");const{parse,parseDocument,parseAllDocuments,stringify}=YAML'",
+    "test": "vitest run",
+    "test:all": "npm test && npm run test:types && npm run test:dist && npm run test:dist:types",
+    "test:dist": "npm run build && vitest run",
+    "test:dist:types": "tsc --ignoreConfig --allowJs --moduleResolution bundler --noEmit --target es2015 dist/cli.js dist/index.js dist/test-events.js dist/util.js",
+    "test:types": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+    "docs:install": "cd docs-slate && bundle install",
+    "predocs:deploy": "node docs/prepare-docs.js",
+    "docs:deploy": "cd docs-slate && ./deploy.sh",
+    "predocs": "node docs/prepare-docs.js",
+    "docs": "cd docs-slate && bundle exec middleman server",
+    "preversion": "npm test && npm run build",
+    "prepublishOnly": "npm run clean && npm test && npm run build"
+  },
+  "prettier": {
+    "arrowParens": "avoid",
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "none"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^20.11.20",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "fast-check": "^2.12.0",
+    "prettier": "^3.0.2",
+    "rolldown": "^1.0.0-beta.54",
+    "rolldown-plugin-dts": "^0.27.14",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.4.0",
+    "vitest": "^4.0.15"
+  },
+  "engines": {
+    "node": "^20.19 || ^22.12 || >=24"
+  }
+}

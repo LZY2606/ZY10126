@@ -1,0 +1,87 @@
+# Contributing to `yaml`
+
+The YAML spec is somewhat complicated, and `yaml` tries its best to make it as easy as possible to work with it.
+The primary goal of this project is to make YAML as safe and pleasant as possible to work with.
+To that end, the order of priorities is:
+
+1. **Be safe**.
+   Be gracious with bad input, and make dangerous things at least difficult if not impossible.
+   Don't allow resource exhaustion attacks.
+   Reading or writing external files or URLs is rather explicitly left out of the core functionality for security reasons.
+
+2. **Maintain compatibility**.
+   There exists a number of YAML libraries written in and for various languages, based on various versions of the specification.
+   This library currently passes more of the [YAML Test Matrix](https://matrix.yaml.io/) than any other, and it should be kept that way.
+
+3. **Support all YAML features**.
+   Everything that you might want to do with YAML should be possible with `yaml`.
+   In a somewhat perverse way, this means that we need to break the spec a bit in order to allow working with comments.
+   This also means that we want to simultaneously maintain compatibility with multiple versions of the spec, in particular YAML 1.1 and YAML 1.2.
+
+4. **Keep it simple**.
+   Extending the library needs to be done carefully, and keep in mind all of its users.
+   Different applications have different needs and so are provided with different APIs.
+   In particular, custom tags are supported, but aren't part of the built-in schemas.
+
+## Getting Started
+
+To start hacking `yaml`, this should get you set up:
+
+```sh
+git clone https://github.com/eemeli/yaml.git # or your own fork
+cd yaml
+git submodule update --init # required by tests; also fetches the docs & test suite data
+npm install # npm v7 or later is required
+npm test # just to be sure
+```
+
+## Repository Directory & File Structure
+
+- **`dist/`** - JS build of the library, which should work in Node.js 20.19 and modern browsers without polyfills.
+- **`docs/`** - Sources for the library's [documentation site](https://eemeli.org/yaml).
+- **`docs-slate/`** - Compiler for the library's [documentation site](https://eemeli.org/yaml).
+  Maintained as a git submodule to allow merges from its upstream source, [Slate](https://github.com/slatedocs/slate).
+  See its [`README`](./docs-slate/README.md) for installation instructions.
+  Note that the build target is the `gh-pages` branch of _this_ repo.
+- **`src/`** - Source files for the library:
+  - **`src/compose/`** - The AST composer. Consumes CST, produces documents while validating its inputs.
+  - **`src/parse/`** - The lexer and CST parser. Does not depend on other parts of the library.
+  - **`src/schema/`** - Implementations of the standard schemas
+- **`tests/`** - Tests for the library:
+  - **`tests/artifacts/`** - YAML files used by some of the tests
+  - **`tests/doc/`** - Tests for the AST level of the library
+  - **`tests/json-test-suite/`** - Git submodule of the [JSON Test Suite](https://github.com/nst/JSONTestSuite)
+  - **`tests/yaml-test-suite/`** - Git submodule of a custom fork of the [YAML Test Suite](https://github.com/yaml/yaml-test-suite)
+
+## Contributing Code
+
+First of all, make sure that all the tests pass, and that you've added test cases covering your changes.
+Our set of test suites is rather extensive, and is a significant help in making sure no regressions are introduced.
+Note that the CI environment runs tests in both Node.js and browsers, so using new language features may require polyfilling.
+
+Please make sure that your code style matches the Prettier and ESLint rules.
+The easiest way to do that is to configure your editor to do that for you,
+but `lint` and `prettier` npm scripts are also provided.
+
+If your change adds any code comments,
+please make sure that they are really necessary,
+and documenting something not obvious from the code itself.
+
+If you are not a maintainer, your PRs MUST use the PR template,
+and they MUST reference a pre-existing issue.
+
+Do not rebase or squash a PR while it's being reviewed.
+Instead, add new commits or (if necessary to resolve conflicts)
+merge from the `main` branch to your feature branch.
+
+## Use of LLMs and Similar Tools
+
+Prose contributions and comments must be your own writing,
+not the product of large language models (LLMs) or other tools.
+This includes code comments added in PRs, as well as all issue and PR contents.
+
+If you would like to use an LLM to contribute code to `yaml`,
+please request and discuss this in an appropriate issue first.
+LLM use MUST be clearly indicated and pre-approved.
+If there is indication of undeclared LLM assistance,
+the issue or pull request will be declined.
